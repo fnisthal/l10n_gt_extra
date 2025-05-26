@@ -12,8 +12,7 @@ class ReporteBanco(models.AbstractModel):
 
         usar_balance_moneda = False
         lineas = []
-        usar_balance_moneda = False
-        for linea in self.env['account.move.line'].search([('account_id','=',cuenta.id), ('parent_state','=','posted'), ('date','>=',datos['fecha_desde']), ('date','<=',datos['fecha_hasta'])], order='date'):
+        for linea in self.env['account.move.line'].search([('account_id', '=', cuenta.id), ('parent_state', '=', 'posted'), ('date', '>=', datos['fecha_desde']), ('date', '<=', datos['fecha_hasta']), ('company_id', '=', self.env.company.id)], order='date'):
             detalle = {
                 'fecha': linea.date,
                 'documento': linea.move_id.name if linea.move_id else '',
@@ -34,11 +33,13 @@ class ReporteBanco(models.AbstractModel):
                     detalle['credito'] = -1 * linea.amount_currency
 
             # Si la cuenta no tiene moneda o la moneda de la cuenta es la misma de la compañía
-            if not cuenta.currency_id or (cuenta.currency_id.id == linea.company_id.currency_id.id):
+            #if not cuenta.currency_id or (cuenta.currency_id.id == linea.company_id.currency_id.id):
+            if not cuenta.currency_id or (cuenta.currency_id == self.env.company.currency_id):
                 usar_balance_moneda = False
             
                 # Se agregan lineas que no tiene moneda o tienen la misma moneda que la compañía
-                if not linea.currency_id or linea.currency_id.id == linea.company_id.currency_id.id:
+                #if not linea.currency_id or linea.currency_id.id == linea.company_id.currency_id.id:
+                if not linea.currency_id or linea.currency_id == linea.company_id.currency_id:
                     lineas.append(detalle)
                     
             # Si no, si la cuenta si tienen moneda y la moneda de la cuenta es diferente que la de la compañía
@@ -46,7 +47,7 @@ class ReporteBanco(models.AbstractModel):
                 usar_balance_moneda = True
                 
                 # Se agregan lineas que tienen la moneda de la cuenta
-                if linea.currency_id.id == cuenta.currency_id.id:
+                if linea.currency_id == cuenta.currency_id:
                     lineas.append(detalle)
 
         balance_inicial = self.balance_inicial(datos)
@@ -65,13 +66,13 @@ class ReporteBanco(models.AbstractModel):
         cuenta = self.env['account.account'].browse(datos['cuenta_bancaria_id'][0])
         
         # Si la cuenta no tiene moneda o la moneda de la cuenta es la misma de la compañía
-        if not cuenta.currency_id or (cuenta.currency_id.id == cuenta.company_id.currency_id.id):
+        if not cuenta.currency_id or (cuenta.currency_id == self.env.company.currency_id):
             usar_balance_moneda = False        
         # Si no, si la cuenta si tienen moneda y la moneda de la cuenta es diferente que la de la compañía
         else:
             usar_balance_moneda = True
 
-        self.env.cr.execute('select coalesce(sum(debit) - sum(credit), 0) as balance, coalesce(sum(amount_currency), 0) as balance_moneda from account_move_line where account_id = %s and parent_state = %s and date < %s', (datos['cuenta_bancaria_id'][0], 'posted', datos['fecha_desde']))
+        self.env.cr.execute("SELECT COALESCE(SUM(debit) - SUM(credit), 0) AS balance, COALESCE(SUM(amount_currency), 0) AS balance_moneda FROM account_move_line WHERE account_id = %s AND parent_state = %s AND date < %s AND company_id = %s", (cuenta.id, 'posted', datos['fecha_desde'], self.env.company.id))
         result = self.env.cr.dictfetchall()[0]
         result['usar_balance_moneda'] = usar_balance_moneda
         
@@ -87,7 +88,7 @@ class ReporteBanco(models.AbstractModel):
             'doc_model': model,
             'data': data['form'],
             'docs': docs,
-            'moneda': docs[0].cuenta_bancaria_id.currency_id or self.env.user.company_id.currency_id,
+            'moneda': docs[0].cuenta_bancaria_id.currency_id or self.env.company.currency_id,
             'lineas': self.lineas,
             'balance_inicial': self.balance_inicial(data['form']),
             'current_company_id': self.env.company,

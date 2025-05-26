@@ -24,13 +24,13 @@ class AccountMove(models.Model):
             if factura.diario_facturas_por_rangos:
                 if int(factura.final_rango) < int(factura.inicial_rango):
                     raise ValidationError('El número inicial del rango es mayor que el final.')
-                cruzados = factura.search([('serie_rango','=',factura.serie_rango), ('inicial_rango','<=',factura.inicial_rango), ('final_rango','>=',factura.inicial_rango)])
+                cruzados = factura.search([('serie_rango','=',factura.serie_rango), ('inicial_rango','<=',factura.inicial_rango), ('final_rango','>=',factura.inicial_rango), ('company_id', '=', factura.company_id.id)])
                 if len(cruzados) > 1:
                     raise ValidationError('Ya existe otra factura con esta serie y en el mismo rango')
-                cruzados = self.search([('serie_rango','=',factura.serie_rango), ('inicial_rango','<=',factura.final_rango), ('final_rango','>=',factura.final_rango)])
+                cruzados = self.search([('serie_rango','=',factura.serie_rango), ('inicial_rango','<=',factura.final_rango), ('final_rango','>=',factura.final_rango), ('company_id', '=', factura.company_id.id)])
                 if len(cruzados) > 1:
                     raise ValidationError('Ya existe otra factura con esta serie y en el mismo rango')
-                cruzados = self.search([('serie_rango','=',factura.serie_rango), ('inicial_rango','>=',factura.inicial_rango), ('inicial_rango','<=',factura.final_rango)])
+                cruzados = self.search([('serie_rango','=',factura.serie_rango), ('inicial_rango','>=',factura.inicial_rango), ('inicial_rango','<=',factura.final_rango), ('company_id', '=', factura.company_id.id)])
                 if len(cruzados) > 1:
                     raise ValidationError('Ya existe otra factura con esta serie y en el mismo rango')
 

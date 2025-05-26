@@ -24,12 +24,10 @@ class ReporteVentas(models.AbstractModel):
             ('date','<=',datos['fecha_hasta']),
             ('date','>=',datos['fecha_desde']),
             ('amount_total','!=',0),
+            ('company_id', '=', self.env.company.id),
         ]
         
-        if 'type' in self.env['account.move'].fields_get():
-            filtro.append(('type','in',['out_invoice','out_refund']))
-        else:
-            filtro.append(('move_type','in',['out_invoice','out_refund']))
+        filtro.append(('move_type','in',['out_invoice','out_refund']))
 
         facturas = self.env['account.move'].search(filtro)
         impuesto = self.env['account.tax'].browse(datos['impuesto_id'][0])
@@ -39,7 +37,7 @@ class ReporteVentas(models.AbstractModel):
             totales['num_facturas'] += 1
 
             tipo_cambio = 1
-            if f.currency_id.id != f.company_id.currency_id.id:
+            if f.currency_id != f.company_id.currency_id:
                 # Probar con impuesto inicialmente
                 for l in f.invoice_line_ids:
                     if impuesto in l.tax_ids:
@@ -56,7 +54,7 @@ class ReporteVentas(models.AbstractModel):
                         tipo_cambio = abs(total / f.amount_total)
 
             tipo = 'FACT'
-            tipo_interno_factura = f.type if 'type' in f.fields_get() else f.move_type
+            tipo_interno_factura = f.move_type
             if tipo_interno_factura != 'out_invoice':
                 tipo = 'NC'
             if f.nota_debito:
