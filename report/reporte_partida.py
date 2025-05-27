@@ -14,7 +14,7 @@ class ReportePartida(models.AbstractModel):
     @api.model
     def get_report_values(self, docids, data=None):
         model = 'account.move'
-        docs = self.env[model].browse(docids)
+        docs = self.env[model].browse(docids).filtered(lambda m: m.company_id == self.env.company)
 
         return {
             'doc_ids': docids,
