@@ -26,7 +26,7 @@
 
                     <t t-set="result" t-value="lineas(data)"/>
 
-                    <table class="table table-condensed">
+                    <table class="table table-condensed" style="font-size: 9px;">
                         <thead>
                             <tr>
                                 <th>Tipo</th>
@@ -158,7 +158,7 @@
                     </div>
 
                     <div><strong>Resumen:</strong></div>
-                    <table class="table table-condensed">
+                    <table class="table table-condensed" style="font-size: 9px;">
                         <thead>
                             <tr>
                                 <th></th>
