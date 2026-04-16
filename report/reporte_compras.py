@@ -32,6 +32,7 @@ class ReporteCompras(models.AbstractModel):
         filtro.append(('move_type', 'in', ['in_invoice', 'in_refund']))
         
         facturas = self.env['account.move'].search(filtro)
+        impuestos = self.env['account.tax'].browse(datos['impuestos_id'])
 
         lineas = []
         for f in facturas:
@@ -39,12 +40,23 @@ class ReporteCompras(models.AbstractModel):
 
             tipo_cambio = 1
             if f.currency_id != f.company_id.currency_id:
-                total = 0
-                for l in f.line_ids:
-                    if l.account_id.reconcile:
-                        total += l.debit - l.credit
-                if f.amount_total != 0:
-                    tipo_cambio = abs(total / f.amount_total)
+                # Probar con impuesto inicialmente
+                for l in f.invoice_line_ids:
+                    if any(impuesto in l.tax_ids for impuesto in impuestos):
+                        if l.amount_currency != 0:
+                            tipo_cambio = l.balance/l.amount_currency
+
+                # Si la factura no tiene impuesto, entonces usar cuenta por cobrar/pagar
+                if tipo_cambio == 1:
+                    total = 0
+                    for l in f.line_ids:
+                        if l.account_id.reconcile:
+                            total += l.debit - l.credit
+                    if f.amount_total != 0:
+                        tipo_cambio = abs(total / f.amount_total)
+
+            if f.company_id != self.env.company:
+                tipo_cambio = self.env['res.currency']._get_conversion_rate(f.company_id.currency_id, self.env.company.currency_id)
 
             tipo = 'FACT'
             tipo_interno_factura = f.move_type
@@ -89,7 +101,7 @@ class ReporteCompras(models.AbstractModel):
 
                 tipo_linea = f.tipo_gasto or 'mixto'
                 if tipo_linea == 'mixto':
-                    if l.product_id.type == 'product':
+                    if l.product_id.type != 'service':
                         tipo_linea = 'compra'
                     else:
                         tipo_linea = 'servicio'
@@ -97,15 +109,18 @@ class ReporteCompras(models.AbstractModel):
                 if f.partner_id.pequenio_contribuyente:
                     tipo_linea = 'pequeño'
 
+                # Siempre enviar cantidad y precio correctos. Por qué algunos impuestos se calculan por cantidades.
                 r = l.tax_ids.compute_all(precio, currency=f.currency_id, quantity=l.quantity, product=l.product_id, partner=f.partner_id)
 
                 linea['base'] += r['total_excluded']
                 totales[tipo_linea]['total'] += r['total_excluded']
-                if len(l.tax_ids) > 0:
+
+                # No es exenta si trae el impuesto seleccionado en el wizard
+                if any(impuesto in l.tax_ids for impuesto in impuestos):
                     linea[tipo_linea] += r['total_excluded']
                     totales[tipo_linea]['neto'] += r['total_excluded']
                     for i in r['taxes']:
-                        if i['id'] == datos['impuesto_id'][0]:
+                        if i['id'] in [impuesto.id for impuesto in impuestos]:
                             linea['iva'] += i['amount']
                             totales[tipo_linea]['iva'] += i['amount']
                             totales[tipo_linea]['total'] += i['amount']
@@ -144,5 +159,3 @@ class ReporteCompras(models.AbstractModel):
             'direccion_diario': diario.direccion,
             'current_company_id': self.env.company,
         }
-
-# vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

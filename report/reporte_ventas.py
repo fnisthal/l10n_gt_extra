@@ -30,7 +30,7 @@ class ReporteVentas(models.AbstractModel):
         filtro.append(('move_type','in',['out_invoice','out_refund']))
 
         facturas = self.env['account.move'].search(filtro)
-        impuesto = self.env['account.tax'].browse(datos['impuesto_id'][0])
+        impuestos = self.env['account.tax'].browse(datos['impuestos_id'])
 
         lineas = []
         for f in facturas:
@@ -40,7 +40,7 @@ class ReporteVentas(models.AbstractModel):
             if f.currency_id != f.company_id.currency_id:
                 # Probar con impuesto inicialmente
                 for l in f.invoice_line_ids:
-                    if impuesto in l.tax_ids:
+                    if any(impuesto in l.tax_ids for impuesto in impuestos):
                         if l.amount_currency != 0:
                             tipo_cambio = l.balance/l.amount_currency
                 
@@ -52,6 +52,9 @@ class ReporteVentas(models.AbstractModel):
                             total += l.debit - l.credit
                     if f.amount_total != 0:
                         tipo_cambio = abs(total / f.amount_total)
+
+            if f.company_id.id != self.env.company.id:
+                tipo_cambio = self.env['res.currency']._get_conversion_rate(f.company_id.currency_id, self.env.company.currency_id)
 
             tipo = 'FACT'
             tipo_interno_factura = f.move_type
@@ -112,15 +115,18 @@ class ReporteVentas(models.AbstractModel):
                     else:
                         tipo_linea = 'servicio'
 
+                # Siempre enviar cantidad y precio correctos. Por qué algunos impuestos se calculan por cantidades.
                 r = l.tax_ids.compute_all(precio, currency=f.currency_id, quantity=l.quantity, product=l.product_id, partner=f.partner_id)
 
                 linea['base'] += r['total_excluded']
                 totales[tipo_linea]['total'] += r['total_excluded']
-                if len(l.tax_ids) > 0:
+                
+                # No es exenta si trae el impuesto seleccionado en el wizard
+                if any(impuesto in l.tax_ids for impuesto in impuestos):
                     linea[tipo_linea] += r['total_excluded']
                     totales[tipo_linea]['neto'] += r['total_excluded']
                     for i in r['taxes']:
-                        if i['id'] == datos['impuesto_id'][0]:
+                        if i['id'] in [impuesto.id for impuesto in impuestos]:
                             linea['iva'] += i['amount']
                             totales[tipo_linea]['iva'] += i['amount']
                             totales[tipo_linea]['total'] += i['amount']
@@ -189,5 +195,3 @@ class ReporteVentas(models.AbstractModel):
             'direccion_diario': diario.direccion,
             'current_company_id': self.env.company,
         }
-
-# vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

@@ -6,7 +6,7 @@ import logging
 
 class ReporteInventario(models.AbstractModel):
     _name = 'report.l10n_gt_extra.reporte_inventario'
-    _description = 'Reporte de Inventario'
+    _description = 'Libro de Inventario'
 
     def retornar_saldo_inicial_todos_anios(self, cuenta, fecha_desde):
         saldo_inicial = 0
@@ -43,7 +43,7 @@ class ReporteInventario(models.AbstractModel):
 
         self.env.cr.execute('select a.id, a.account_type as id_cuenta, sum(l.debit) as debe, sum(l.credit) as haber ' \
         	'from account_move_line l join account_account a on(l.account_id = a.id)' \
-        	'where a.id in ('+accounts_str+') and l.date >= %s and l.date <= %s and l.company_id = %s group by a.id, a.account_type',
+        	'where l.parent_state = \'posted\' and a.id in ('+accounts_str+') and l.date >= %s and l.date <= %s and l.company_id = %s group by a.id, a.account_type',
         (fecha_desde, datos['fecha_hasta'], self.env.company.id))
 
         for r in self.env.cr.dictfetchall():
