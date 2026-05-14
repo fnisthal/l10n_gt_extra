@@ -30,6 +30,7 @@ def _table_exists(cr, table_name):
 
 def migrate(cr, version):
     env = api.Environment(cr, SUPERUSER_ID, {})
+    missing_models = []
 
     for model_name in _WIZARD_MODELS:
         try:
@@ -38,12 +39,20 @@ def migrate(cr, version):
             _logger.warning("No se encontró el modelo %s durante post-migración", model_name)
             continue
 
+        if not _table_exists(cr, model._table):
+            missing_models.append(model_name)
+
+    if not missing_models:
+        _logger.info("Todas las tablas de wizards ya existen")
+        return
+
+    _logger.warning("Se reconstruyen tablas faltantes para: %s", ", ".join(missing_models))
+    env.registry.init_models(cr, missing_models, {"module": "l10n_gt_extra"}, new_install=False)
+
+    for model_name in missing_models:
+        model = env[model_name]
         if _table_exists(cr, model._table):
             continue
 
-        _logger.warning(
-            "Tabla %s ausente para %s; se ejecuta _auto_init()",
-            model._table,
-            model_name,
-        )
+        _logger.warning("init_models no creó %s; se intenta _auto_init()", model._table)
         model._auto_init()
