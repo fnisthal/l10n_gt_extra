@@ -57,11 +57,13 @@ class ReporteVentas(models.AbstractModel):
                 tipo_cambio = self.env['res.currency']._get_conversion_rate(f.company_id.currency_id, self.env.company.currency_id)
 
             tipo = 'FACT'
-            tipo_interno_factura = f.move_type
-            if tipo_interno_factura != 'out_invoice':
-                tipo = 'NC'
-            if f.nota_debito:
-                tipo = 'ND'
+            if 'tipo_documento_fel' in f.journal_id.fields_get() and f.journal_id.tipo_documento_fel:
+                tipo = f.journal_id.tipo_documento_fel
+            else:
+                if f.move_type != 'out_invoice':
+                    tipo = 'NC'
+                if f.nota_debito:
+                    tipo = 'ND'
 
             numero = f.name or '-'
 
@@ -110,7 +112,7 @@ class ReporteVentas(models.AbstractModel):
 
                 tipo_linea = f.tipo_gasto or 'mixto'
                 if tipo_linea == 'mixto':
-                    if l.product_id.type != 'service':
+                    if l.tipo_producto_sat != 'servicio':
                         tipo_linea = 'compra'
                     else:
                         tipo_linea = 'servicio'
