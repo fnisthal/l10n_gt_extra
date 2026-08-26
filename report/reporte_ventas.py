@@ -101,7 +101,10 @@ class ReporteVentas(models.AbstractModel):
                 'total': 0
             }
 
-            if f.state == 'cancel':
+            factura_anulada = f.state == 'cancel'
+            if 'estado_anulacion_fel' in f._fields:
+                factura_anulada = factura_anulada or f.estado_anulacion_fel == 'anulada'
+            if factura_anulada:
                 lineas.append(linea)
                 continue
 
